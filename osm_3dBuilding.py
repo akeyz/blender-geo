@@ -2,36 +2,57 @@ import bpy, bmesh
 
 class Osm3DBuilding: 
     def __init__(self,verts,tags):
-        self.source_vertices=verts
-        self.tags=tags
-        self.vertsCount=len(verts)
-        self.__calcWalls()
-        self.direction={}
-        self.__fillDirectionDict()
-        
+    
         self.height=None
         self.min_height=None
         self.roof_height=None
         self.roof_angle=None
-        self.roof_shape="flat" # Default roof Shape
-        self.roof_orientagion="along" # Default roof Orientation
-        self.length_along=None
+        self.roof_shape="flat" # default roof shape
+        self.roof_orientagion="along" # default roof orientation along|across
+        self.roof_levels=None # number of Levels in the Roof
+        self.length_along=None # building length on the longer side
+        self.length_across=None # building width on the shorter side
+        self.levels=None
         self.length_across=None
         self.roof_direction=None
         self.heightPerLevel=2.80
         self.min_level=None
         
+        self.Walls=None
+        self.center=0,0
+       
+        
+        self.source_vertices=verts
+        self.tags=tags
+        self.vertsCount=len(verts)
+        self.__calcWalls()
+        
+        self.direction={}
+        self.__fillDirectionDict()
+                
         self.__readTags(tags)
         self.__fillMissingInformation()
         
+        
     def __fillMissingInformation(self):
-        pass
+        # If height is not defined, calculate height from levels
+        if not self.height:
+            if self.levels:
+                self.height = float(self.levels) * self.heightPerLevel
+            if self.roof_levels:
+                # Roof-Levels are on top of building levels, so add height here
+                self.height += float(self.roof_levels) * self.heightPerLevel
+        # if roof height is not defined, calculate from levels
+        if not self.roof_height:
+            if self.roof_levels:
+                self.roof_height=float(self.roof_levels) * self.heightPerLevel
         
         
     def __readTags(self,tags):
+        # read all tags and store relevant information in the class
         if "min_height" in tags:
             # There's a height tag. It's parsed as text and could look like: 25, 25m, 25 ft, etc.
-            self.min_height = parse_scalar_and_unit(tags["min_height"])
+            self.min_height,unit = parse_scalar_and_unit(tags["min_height"])
 
         if "height" in tags:
             # There's a height tag. It's parsed as text and could look like: 25, 25m, 25 ft, etc.
@@ -39,15 +60,15 @@ class Osm3DBuilding:
                   
         if "building:levels" in tags:
             # If no height is given, calculate height of Building from Levels
-            self.levels = parse_scalar_and_unit(tags["building:levels"])
+            self.levels,unit = parse_scalar_and_unit(tags["building:levels"])
             
         if "roof:levels" in tags:
             # If no height is given, calculate height of Building from Levels
-            self.roof_levels = parse_scalar_and_unit(tags["roof:levels"])
+            self.roof_levels,unit = parse_scalar_and_unit(tags["roof:levels"])
             
         if "building:min_level" in tags:
             # If no height is given, calculate height of Building from Levels
-            self.min_level = parse_scalar_and_unit(tags["building:min_level"])
+            self.min_level,unit = parse_scalar_and_unit(tags["building:min_level"])
                                 
         if "roof:height" in tags:
             print("roof:height="+str(tags["roof:height"]))
@@ -58,14 +79,16 @@ class Osm3DBuilding:
           
 
     def getMesh(self):
+        # create the building-mesh and return the vertices used
         vertices=[]
         edges=[]
         faces=[]
         
+        # add base vertices
         for vert1 in self.source_vertices:
             vertices.append(vert1)
             
-        # Base Vertices
+        # count base Vertices
         countvert=len(vertices)
             
         # Roof Vertices
