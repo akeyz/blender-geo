@@ -1,5 +1,5 @@
 import bpy, bmesh
-import utils, osm_utils
+import utils, osm_utils, osm_3dBuilding.py
 
 class Buildings:
     @staticmethod
@@ -102,14 +102,10 @@ class BuildingParts:
             v = kwargs["projection"].fromGeographic(node["lat"], node["lon"])
             verts.append( bm.verts.new((v[0], v[1], min_height)) )
         
-        bm.faces.new(verts)
+        bm.from_pydata(*Osm3DBuilding(verts,tags).getMesh())
         
         if not kwargs["bm"]:
             tags = way["tags"]
-
-            # extrude
-            if (height-min_height)>0:
-                utils.extrudeMesh(bm, (height-min_height))
             
             bm.normal_update()
             
