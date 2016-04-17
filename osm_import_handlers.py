@@ -1,5 +1,5 @@
 import bpy, bmesh
-import utils, osm_utils, osm_3dBuilding.py
+import utils, osm_utils, osm_3dBuilding
 
 class Buildings:
     @staticmethod
@@ -97,20 +97,24 @@ class BuildingParts:
 
         bm = kwargs["bm"] if kwargs["bm"] else bmesh.new()
         verts = []
+        vertPositions = []
+        
         for node in range(numNodes):
             node = parser.nodes[wayNodes[node]]
             v = kwargs["projection"].fromGeographic(node["lat"], node["lon"])
-            verts.append( bm.verts.new((v[0], v[1], min_height)) )
-        
-        bm.from_pydata(*Osm3DBuilding(verts,tags).getMesh())
-        
+            #verts.append( bm.verts.new((v[0], v[1], min_height)) )
+            
+            vertPositions.append( (v[0],v[1],min_height) )
+            # bm.faces.new(verts)
+                
         if not kwargs["bm"]:
             tags = way["tags"]
             
-            bm.normal_update()
+            #bm.normal_update()
             
-            mesh = bpy.data.meshes.new(osmId)
-            bm.to_mesh(mesh)
+            mesh = bpy.data.meshes.new(osmId)           
+            #bm.to_mesh(mesh)
+            mesh.from_pydata(*Osm3DBuilding(vertPositions,tags).getMesh())
             
             obj = bpy.data.objects.new(name, mesh)
             bpy.context.scene.objects.link(obj)

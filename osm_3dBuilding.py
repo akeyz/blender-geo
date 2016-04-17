@@ -2,11 +2,13 @@ import bpy, bmesh
 
 class Osm3DBuilding: 
     def __init__(self,verts,tags):
-        self.verts=verts
+        self.source_vertices=verts
+        self.tags=tags
         self.vertsCount=len(verts)
         self.__calcWalls()
         self.direction={}
-        self.__fillDict()
+        self.__fillDirectionDict()
+        
         self.height=None
         self.min_height=None
         self.roof_height=None
@@ -16,40 +18,62 @@ class Osm3DBuilding:
         self.length_along=None
         self.length_across=None
         self.roof_direction=None
+        self.heightPerLevel=2.80
+        self.min_level=None
         
+        self.__readTags(tags)
+        self.__fillMissingInformation()
+        
+    def __fillMissingInformation(self):
+        pass
+        
+        
+    def __readTags(self,tags):
         if "min_height" in tags:
             # There's a height tag. It's parsed as text and could look like: 25, 25m, 25 ft, etc.
-            self.min_height = osm_utils.parse_scalar_and_unit(tags["min_height"])
+            self.min_height = parse_scalar_and_unit(tags["min_height"])
 
         if "height" in tags:
             # There's a height tag. It's parsed as text and could look like: 25, 25m, 25 ft, etc.
-            self.height,unit = osm_utils.parse_scalar_and_unit(tags["height"])
-            
-        if "building:min_level" in tags:
-            # If no height is given, calculate height of Building from Levels
-            if self.min_height==0:                
-                self.min_height = int(tags["building:min_level"])*heightPerLevel
-                
+            self.height,unit = parse_scalar_and_unit(tags["height"])
+                  
         if "building:levels" in tags:
             # If no height is given, calculate height of Building from Levels
-            if self.height==0:                
-                self.height = int(tags["building:levels"])*heightPerLevel
-                
-        if "roof:height" in tags:
-            self.roof_height,unit = osm_utils.parse_scalar_and_unit(tags["roof:height"])
+            self.levels = parse_scalar_and_unit(tags["building:levels"])
             
         if "roof:levels" in tags:
             # If no height is given, calculate height of Building from Levels
-            if self.roof_height==0:                
-                self.roof_height = int(tags["roof:levels"])*heightPerLevel
-        
+            self.roof_levels = parse_scalar_and_unit(tags["roof:levels"])
+            
+        if "building:min_level" in tags:
+            # If no height is given, calculate height of Building from Levels
+            self.min_level = parse_scalar_and_unit(tags["building:min_level"])
+                                
+        if "roof:height" in tags:
+            print("roof:height="+str(tags["roof:height"]))
+            self.roof_height,unit = parse_scalar_and_unit(tags["roof:height"])
+                    
         if "roof:shape" in tags:
             self.roof_shape = tags["roof:shape"]
+          
 
     def getMesh(self):
         vertices=[]
         edges=[]
         faces=[]
+        
+        for vert1 in self.source_vertices:
+            vertices.append(vert1)
+            
+        # Base Vertices
+        countvert=len(vertices)
+            
+        # Roof Vertices
+        for vert2 in self.source_vertices:
+            # Fixed Height 5 until Height Calculation is finished
+            height=5 if not self.height else self.height
+            roofVert=vert2[0],vert2[1],height
+            vertices.append(roofVert)
         
         return vertices,edges,faces
                 
@@ -65,7 +89,7 @@ class Osm3DBuilding:
                 print("newmax="+ str(key)+" "+str(self.direction[key]))
         return self.direction[maxlenkey]
     
-    def __fillDict(self):
+    def __fillDirectionDict(self):
         # Dictionary Example:
         #  direction[100]=125,1,0
         #       100  Degrees orientation
@@ -85,15 +109,21 @@ class Osm3DBuilding:
         cy=0
         
         wallList=[]
-        length=len(self.verts)
+        length=len(self.source_vertices)
         walls=length-1.0
+        print( "Source: "+str(self.source_vertices) )
+        
+        print("Verts: " + str(len(self.source_vertices)))
         for i in range(1,length):
-            v1=self.verts[i][0] - self.verts[i-1][0]
-            v2=self.verts[i][1] - self.verts[i-1][1]
-            v3=self.verts[i][2] - self.verts[i-1][2]
+            
+            print( "__calcWalls: "+str(i)+"-"+str(length) )
+            
+            v1=self.source_vertices[i][0] - self.source_vertices[i-1][0]
+            v2=self.source_vertices[i][1] - self.source_vertices[i-1][1]
+            v3=self.source_vertices[i][2] - self.source_vertices[i-1][2]
             wallList.append(self.__getWallInfoTuple((v1,v2,v3)))
-            cx=cx+(self.verts[i][0]/walls)
-            cy=cy+(self.verts[i][1]/walls)
+            cx=cx+(self.source_vertices[i][0]/walls)
+            cy=cy+(self.source_vertices[i][1]/walls)
         self.Walls=wallList
         self.center=cx,cy
         
