@@ -37,15 +37,27 @@ class Osm3DBuilding:
     def __fillMissingInformation(self):
         # If height is not defined, calculate height from levels
         if not self.height:
-            if self.levels:
+            if self.levels:  
                 self.height = float(self.levels) * self.heightPerLevel
-            if self.roof_levels:
+            if self.roof_levels:  
                 # Roof-Levels are on top of building levels, so add height here
                 self.height += float(self.roof_levels) * self.heightPerLevel
         # if roof height is not defined, calculate from levels
         if not self.roof_height:
             if self.roof_levels:
                 self.roof_height=float(self.roof_levels) * self.heightPerLevel
+               
+        # if min height is not defined, calculate from min level
+        if not self.min_height:
+            if self.min_level:
+                self.min_height=float(self.min_level) * self.heightPerLevel
+                
+        # if height is still not defined set default
+        if not self.height:
+            self.height=5
+        if not self.min_height:
+            self.min_height=0
+         
         
         
     def __readTags(self,tags):
@@ -67,7 +79,7 @@ class Osm3DBuilding:
             self.roof_levels,unit = parse_scalar_and_unit(tags["roof:levels"])
             
         if "building:min_level" in tags:
-            # If no height is given, calculate height of Building from Levels
+            # If no height is given, calculate height of Building from Levels            
             self.min_level,unit = parse_scalar_and_unit(tags["building:min_level"])
                                 
         if "roof:height" in tags:
@@ -76,6 +88,8 @@ class Osm3DBuilding:
                     
         if "roof:shape" in tags:
             self.roof_shape = tags["roof:shape"]
+            
+        
           
 
     def getMesh(self):
@@ -86,17 +100,25 @@ class Osm3DBuilding:
         
         # add base vertices
         for vert1 in self.source_vertices:
-            vertices.append(vert1)
+            vertices.append((vert1[0],vert1[1],self.min_height))
             
         # count base Vertices
-        countvert=len(vertices)
+        BaseVertCount=len(vertices)
             
         # Roof Vertices
         for vert2 in self.source_vertices:
             # Fixed Height 5 until Height Calculation is finished
-            height=5 if not self.height else self.height
-            roofVert=vert2[0],vert2[1],height
+            roofVert=vert2[0],vert2[1],self.height
             vertices.append(roofVert)
+            
+        # ground face
+        groundFace=[]
+        print("for:"+str(groundFace)+" "+str(BaseVertCount))
+        for i in range(0,BaseVertCount):
+            print(groundFace)
+            groundFace.append(i)
+            
+        faces.append(groundFace)
         
         return vertices,edges,faces
                 
