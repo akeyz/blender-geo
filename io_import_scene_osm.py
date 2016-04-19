@@ -326,6 +326,8 @@ class Osm3DBuilding:
             self.height=5
         if not self.min_height:
             self.min_height=0
+        if not self.roof_height:
+            self.roof_height=0
          
         
         
@@ -352,13 +354,84 @@ class Osm3DBuilding:
             self.min_level,unit = parse_scalar_and_unit(tags["building:min_level"])
                                 
         if "roof:height" in tags:
-            print("roof:height="+str(tags["roof:height"]))
             self.roof_height,unit = parse_scalar_and_unit(tags["roof:height"])
                     
         if "roof:shape" in tags:
             self.roof_shape = tags["roof:shape"]
             
+            
+            
+    def getVertexTopHeight(self,vertex):
+        """This function returns the height of each wall"""
+        if self.roof_shape == "gabled":
+            pass
+        elif self.roof_shape == "skillon":
+            pass
+        elif self.roof_shape == "gambrel":
+            pass
+        elif self.roof_shape == "round":
+            pass
+        elif self.roof_shape == "saltbox":
+            pass
+            
+        # per default the height of the vertices is the same
+        # as the building height
+        return self.height-self.roof_height
+
+           
+           
+    def getRoofVertices(self):
+        firstBaseVertex=0
+        lastBaseVertex=self.vertsCount-1
+        firstRoofVertex=self.vertsCount
+        lastRoofVertex=(self.vertsCount*2)-1
         
+        print("Base: "+str(firstBaseVertex)+"-"+str(lastBaseVertex))
+        print("Roof: "+str(firstRoofVertex)+"-"+str(lastRoofVertex))
+        
+        vertices=[]
+        edges=[]
+        faces=[]
+        
+        if self.roof_height == 0:
+            print("no Roof Height")
+            roofFace=[]
+            for i in range(firstRoofVertex,lastRoofVertex+1):
+                roofFace.append(i)
+            faces.append(roofFace)
+        elif self.roof_shape == "flat":
+            print("Flat Roof")
+            roofFace=[]
+            for i in range(firstRoofVertex,lastRoofVertex+1):
+                roofFace.append(i)
+            faces.append(roofFace)
+        elif self.roof_shape == "skillon":
+            pass
+        elif self.roof_shape == "gabled":
+            pass
+        elif self.roof_shape == "half-hipped":
+            pass
+        elif self.roof_shape == "hipped":
+            pass
+        elif self.roof_shape == "pyramidal":
+            pass
+        elif self.roof_shape == "gambrel":
+            pass
+        elif self.roof_shape == "mansard":
+            pass
+        elif self.roof_shape == "dome":
+            pass
+        elif self.roof_shape == "onion":
+            pass
+        elif self.roof_shape == "round":
+            pass
+        elif self.roof_shape == "saltbox":
+            pass
+        
+        print("Vertices: "+str(vertices))
+        print("Edges:    "+str(edges))
+        print("Faces:    "+str(faces))
+        return vertices,edges,faces
           
 
     def getMesh(self):
@@ -377,14 +450,12 @@ class Osm3DBuilding:
         # Roof Vertices
         for vert2 in self.source_vertices:
             # Fixed Height 5 until Height Calculation is finished
-            roofVert=vert2[0],vert2[1],self.height
+            roofVert=vert2[0],vert2[1],self.getVertexTopHeight(vert2)
             vertices.append(roofVert)
             
         # ground face
         groundFace=[]
-        print("for:"+str(groundFace)+" "+str(BaseVertCount))
         for i in range(0,BaseVertCount):
-            print(groundFace)
             groundFace.append(i)
             
         faces.append(groundFace)
@@ -405,6 +476,14 @@ class Osm3DBuilding:
         wall_face.append(BaseVertCount-1)
         faces.append(wall_face)
         
+        # get roof vertices, edges, and faces
+        rv,re,rf=self.getRoofVertices()
+        
+        # append vertex information
+        vertices+=rv
+        edges+=re
+        faces+=rf        
+        
         return vertices,edges,faces
                 
     def dir(self):
@@ -416,7 +495,6 @@ class Osm3DBuilding:
             if (self.direction[key][0]>maxlen):
                 maxlen=self.direction[key][0]
                 maxlenkey=key
-                print("newmax="+ str(key)+" "+str(self.direction[key]))
         return self.direction[maxlenkey]
     
     def __fillDirectionDict(self):
@@ -441,12 +519,8 @@ class Osm3DBuilding:
         wallList=[]
         length=len(self.source_vertices)
         walls=length-1.0
-        print( "Source: "+str(self.source_vertices) )
         
-        print("Verts: " + str(len(self.source_vertices)))
         for i in range(1,length):
-            
-            print( "__calcWalls: "+str(i)+"-"+str(length) )
             
             v1=self.source_vertices[i][0] - self.source_vertices[i-1][0]
             v2=self.source_vertices[i][1] - self.source_vertices[i-1][1]
@@ -634,6 +708,7 @@ class Highways:
             obj.select = True
             # assign OSM tags to the blender object
             assignTags(obj, tags)
+            
 class Naturals:
     @staticmethod
     def condition(tags, way):
