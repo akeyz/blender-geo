@@ -102,7 +102,7 @@ class Osm3DBuilding:
         for vert1 in self.source_vertices:
             vertices.append((vert1[0],vert1[1],self.min_height))
             
-        # count base Vertices
+        # count Vertices of the base - for each base there will be one top vertex
         BaseVertCount=len(vertices)
             
         # Roof Vertices
@@ -119,6 +119,22 @@ class Osm3DBuilding:
             groundFace.append(i)
             
         faces.append(groundFace)
+        
+        # wall faces except last one
+        for wverts in range(1,BaseVertCount):
+            wall_face=[]
+            wall_face.append(BaseVertCount+wverts-1)
+            wall_face.append(BaseVertCount+wverts)
+            wall_face.append(wverts)
+            wall_face.append(wverts-1)
+            faces.append(wall_face)
+        # last wall consists of first and last vertex in row
+        wall_face=[]
+        wall_face.append(BaseVertCount+BaseVertCount-1)
+        wall_face.append(BaseVertCount)
+        wall_face.append(0)
+        wall_face.append(BaseVertCount-1)
+        faces.append(wall_face)
         
         return vertices,edges,faces
                 
