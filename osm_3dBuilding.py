@@ -59,6 +59,7 @@ class Osm3DBuilding:
             self.min_height=0
         if not self.roof_height:
             self.roof_height=0
+            self.roof_shape="flat"
          
         
         
@@ -124,14 +125,7 @@ class Osm3DBuilding:
         edges=[]
         faces=[]
         
-        if self.roof_height == 0:
-            print("no Roof Height")
-            roofFace=[]
-            for i in range(firstRoofVertex,lastRoofVertex+1):
-                roofFace.append(i)
-            faces.append(roofFace)
         elif self.roof_shape == "flat":
-            print("Flat Roof")
             roofFace=[]
             for i in range(firstRoofVertex,lastRoofVertex+1):
                 roofFace.append(i)
