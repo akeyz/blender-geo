@@ -1,4 +1,4 @@
-import bpy, bmesh
+import bpy, bmesh, math, mathutils
 
 class Osm3DBuilding: 
     def __init__(self,verts,tags):
@@ -13,7 +13,6 @@ class Osm3DBuilding:
         self.length_along=None # building length on the longer side
         self.length_across=None # building width on the shorter side
         self.levels=None
-        self.length_across=None
         self.roof_direction=None
         self.heightPerLevel=2.80
         self.min_level=None
@@ -25,6 +24,7 @@ class Osm3DBuilding:
         self.source_vertices=verts
         self.tags=tags
         self.vertsCount=len(verts)
+        self.__calcCenter()
         self.__calcWalls()
         
         self.direction={}
@@ -60,7 +60,90 @@ class Osm3DBuilding:
         if not self.roof_height:
             self.roof_height=0
             self.roof_shape="flat"
-         
+            
+        # Roof Angle
+        # translate roof directions into degrees
+        if self.roof_direction == "N":
+            self.roof_direction = 0/180.0*math.pi
+        if self.roof_direction == "NE":
+            self.roof_direction = 45/180.0*math.pi
+        if self.roof_direction == "E":
+            self.roof_direction = 90/180.0*math.pi
+        if self.roof_direction == "SE":
+            self.roof_direction = 135/180.0*math.pi
+        if self.roof_direction == "S":
+            self.roof_direction = 180/180.0*math.pi
+        if self.roof_direction == "SW":
+            self.roof_direction = 225/180.0*math.pi
+        if self.roof_direction == "W":
+            self.roof_direction = 270/180.0*math.pi
+        if self.roof_direction == "NW":
+            self.roof_direction = 315/180.0*math.pi
+        
+        if not self.roof_direction:
+            self.roof_direction=self.getRoofDirection()
+            
+        print("Roof Direction ="+str(self.roof_direction /math.pi*180.0))
+            
+        self.getWidthLength()
+                    
+        
+    def getWidthLength(self):
+        """Calculates the Width and Length of the Building"""    
+        # DirectionVec
+        self.vec_along  = mathutils.Vector((math.sin(self.roof_direction),math.cos(self.roof_direction),0.0))
+        self.vec_across = mathutils.Vector((self.vec_along.y,0.0-self.vec_along.x,0.0))
+        
+        minLengthAcross=0
+        maxLengthAcross=0
+        
+        minLengthAlong=0
+        maxLengthAlong=0
+        
+        for vert in self.source_vertices:
+            along,across = self.getAlongAcrossOfPoint(vert)
+            if along < minLengthAlong:
+                minLengthAlong=along
+            if along > maxLengthAlong:
+                maxLengthAlong=along
+                
+            if across < minLengthAcross:
+                minLengthAcross=across
+            if across > maxLengthAcross:
+                maxLengthAcross=across
+              
+        self.LengthAlong = maxLengthAlong-minLengthAlong
+        self.LengthAcross = maxLengthAcross-minLengthAcross   
+        print("along, across",str((self.LengthAlong,self.LengthAcross)))     
+        
+            
+            
+    def getAlongAcrossOfPoint(self,point):
+        print("center: "+str(self.center))
+        diff = mathutils.Vector((self.center[0]-point[0],self.center[1]-point[1],0.0))
+        across = diff.dot(self.vec_along)                
+        along = diff.dot(self.vec_across)
+        return along,across
+        
+        
+            
+    def getRoofDirection(self):
+        # Get Roof Angle from Longest Side
+        len,x,y=self.dir()
+        angle=math.atan2(x,y)
+        
+        print("angle =" + str(angle*180.0/math.pi))
+        
+        # If roof direction is along, rotate by 90 degrees
+        if self.roof_orientagion=="along":
+            angle+=(math.pi/2)
+            
+        if angle>(2*math.pi):
+            angle-=(2*math.pi)
+        
+        return angle
+            
+        
         
         
     def __readTags(self,tags):
@@ -91,12 +174,19 @@ class Osm3DBuilding:
         if "roof:shape" in tags:
             self.roof_shape = tags["roof:shape"]
             
+        if "roof:direction" in tags:
+            self.roof_direction = tags["roof:direction"]
             
-            
+          
+    
+    
     def getVertexTopHeight(self,vertex):
         """This function returns the height of each wall"""
         if self.roof_shape == "gabled":
-            pass
+            along,across = self.getAlongAcrossOfPoint(vertex)
+            factor= abs(across/(self.LengthAcross/2))
+            
+            return self.height-(self.roof_height*factor)
         elif self.roof_shape == "skillon":
             pass
         elif self.roof_shape == "gambrel":
@@ -117,15 +207,12 @@ class Osm3DBuilding:
         lastBaseVertex=self.vertsCount-1
         firstRoofVertex=self.vertsCount
         lastRoofVertex=(self.vertsCount*2)-1
-        
-        print("Base: "+str(firstBaseVertex)+"-"+str(lastBaseVertex))
-        print("Roof: "+str(firstRoofVertex)+"-"+str(lastRoofVertex))
-        
+                
         vertices=[]
         edges=[]
         faces=[]
         
-        elif self.roof_shape == "flat":
+        if self.roof_shape == "flat":
             roofFace=[]
             for i in range(firstRoofVertex,lastRoofVertex+1):
                 roofFace.append(i)
@@ -153,9 +240,6 @@ class Osm3DBuilding:
         elif self.roof_shape == "saltbox":
             pass
         
-        print("Vertices: "+str(vertices))
-        print("Edges:    "+str(edges))
-        print("Faces:    "+str(faces))
         return vertices,edges,faces
           
 
@@ -237,24 +321,35 @@ class Osm3DBuilding:
             else:
                 self.direction[wall[0]]=wall[1],wall[2],wall[3]
         
-    def __calcWalls(self):
-        cx=0
-        cy=0
-        
+    def __calcWalls(self):        
         wallList=[]
         length=len(self.source_vertices)
         walls=length-1.0
-        
         for i in range(1,length):
-            
             v1=self.source_vertices[i][0] - self.source_vertices[i-1][0]
             v2=self.source_vertices[i][1] - self.source_vertices[i-1][1]
             v3=self.source_vertices[i][2] - self.source_vertices[i-1][2]
             wallList.append(self.__getWallInfoTuple((v1,v2,v3)))
-            cx=cx+(self.source_vertices[i][0]/walls)
-            cy=cy+(self.source_vertices[i][1]/walls)
         self.Walls=wallList
-        self.center=cx,cy
+        
+        
+    def __calcCenter(self):
+        cx=0
+        cy=0
+        length=len(self.source_vertices)
+        maxX,minX=self.source_vertices[0][0],self.source_vertices[0][0]
+        maxY,minY=self.source_vertices[0][1],self.source_vertices[0][1]
+        for i in range(1,length):
+            if self.source_vertices[i][0] > maxX:
+                maxX=self.source_vertices[i][0]
+            if self.source_vertices[i][0] < minX:
+                minX=self.source_vertices[i][0]
+            if self.source_vertices[i][1] > maxY:
+                maxY=self.source_vertices[i][1]
+            if self.source_vertices[i][1] < minY:
+                minY=self.source_vertices[i][1]
+        self.center=(maxX+minX)/2.0,(maxY+minY)/2.0
+        
         
     @staticmethod
     def __getWallInfoTuple(wallDirection):
